@@ -32,4 +32,3 @@ npm test
 This repository is a static site. Configure the hosting provider to publish the repository root; no build command is required.
 
 The Supabase URL and publishable key are configured in `src/config.js`. The browser only calls the protected agent RPC functions; PIN validation and tour validation remain server-side in Supabase.
-

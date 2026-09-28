@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#101318">
+  <meta name="description" content="Application mobile de contrôle de tournées QR pour SAB Security.">
+  <title>SAB Security - Agent</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./assets/sab-securite-logo-clean.png" type="image/png">
+  <link rel="apple-touch-icon" href="./assets/sab-securite-logo-clean.png">
+  <link rel="stylesheet" href="./styles/app.css?v=59">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="top-shell">
+      <div class="brand-lockup">
+        <img class="brand-mark" src="./assets/sab-securite-logo-clean.png" width="42" height="42" alt="">
+        <div>
+          <p class="eyebrow">Agent mobile</p>
+          <h1>SAB Security</h1>
+        </div>
+      </div>
+      <button class="icon-text-button" id="switchAgentButton" type="button" hidden>Agent</button>
+    </header>
+
+    <main class="main-view" id="mainView"></main>
+  </div>
+
+  <section class="sheet scanner-sheet" id="scannerSheet" aria-hidden="true" aria-labelledby="scannerTitle">
+    <div class="sheet-panel" role="dialog" aria-modal="true">
+      <div class="sheet-header">
+        <div>
+          <p class="eyebrow">Scan</p>
+          <h2 id="scannerTitle">QR code</h2>
+        </div>
+        <button class="close-button" id="closeScannerButton" type="button" aria-label="Fermer">×</button>
+      </div>
+
+      <div class="camera-frame">
+        <video id="scannerVideo" playsinline muted></video>
+        <div class="scan-reticle" aria-hidden="true"></div>
+        <p class="camera-state" id="cameraState">Caméra inactive</p>
+      </div>
+
+      <div class="scanner-actions">
+        <button class="primary-button" id="startCameraButton" type="button">Activer la caméra</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="sheet" id="cancelSheet" aria-hidden="true" aria-labelledby="cancelTitle">
+    <div class="sheet-panel" role="dialog" aria-modal="true">
+      <div class="sheet-header">
+        <div>
+          <p class="eyebrow">Annulation</p>
+          <h2 id="cancelTitle">Tournée en cours</h2>
+        </div>
+        <button class="close-button" id="closeCancelButton" type="button" aria-label="Fermer">×</button>
+      </div>
+
+      <div class="reason-grid">
+        <button type="button" data-reason="Incident">Incident</button>
+        <button type="button" data-reason="Urgence">Urgence</button>
+        <button type="button" data-reason="QR code inaccessible">QR code inaccessible</button>
+      </div>
+
+      <label class="reason-note" for="cancelReason">Motif</label>
+      <textarea id="cancelReason" rows="3" maxlength="180"></textarea>
+      <button class="danger-button" id="confirmCancelButton" type="button">Annuler la tournée</button>
+    </div>
+  </section>
+
+  <section class="sheet" id="incidentSheet" aria-hidden="true" aria-labelledby="incidentTitle">
+    <div class="sheet-panel" role="dialog" aria-modal="true">
+      <div class="sheet-header">
+        <div>
+          <p class="eyebrow">Signalement</p>
+          <h2 id="incidentTitle">Ajouter un incident</h2>
+        </div>
+        <button class="close-button" id="closeIncidentButton" type="button" aria-label="Fermer">×</button>
+      </div>
+      <form class="field-stack" id="incidentForm">
+        <div class="incident-categories" role="group" aria-label="Catégorie de l'incident">
+          <button type="button" data-incident-category="Incident">Incident</button>
+          <button type="button" data-incident-category="Urgence">Urgence</button>
+          <button type="button" data-incident-category="Matériel">Matériel</button>
+          <button type="button" data-incident-category="Accès impossible">Accès impossible</button>
+        </div>
+        <label>
+          Description
+          <textarea id="incidentNote" rows="4" maxlength="500" placeholder="Décrivez brièvement la situation" data-keyboard-field required></textarea>
+        </label>
+        <label>
+          Photo facultative
+          <input id="incidentPhoto" type="file" accept="image/*" capture="environment">
+        </label>
+        <p class="form-help">L'heure et la position GPS seront ajoutées automatiquement.</p>
+        <button class="danger-button" type="submit">Enregistrer le signalement</button>
+      </form>
+    </div>
+  </section>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script type="module" src="./src/app.js?v=59"></script>
+</body>
+</html>

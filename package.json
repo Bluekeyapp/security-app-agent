@@ -1,0 +1,13 @@
+{
+  "name": "security-app-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node scripts/serve.mjs",
+    "test": "node --test tests/patrol.test.js tests/storage.test.js"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8"
+  }
+}
