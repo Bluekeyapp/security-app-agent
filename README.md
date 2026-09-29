@@ -5,6 +5,7 @@ The mobile application used by security agents during patrols.
 ## What this repository contains
 
 - Agent sign-in with badge and PIN.
+- The PIN stays in memory while the page is open. Agents sign in again after a refresh or browser restart; an unfinished patrol is retained locally for reauthentication.
 - Route and checkpoint loading from Supabase.
 - QR scanning, GPS capture, incidents, cancellations, comments, and tour history.
 - Offline interface caching through the service worker.
@@ -29,6 +30,6 @@ npm test
 
 ## Deployment
 
-This repository is a static site. Configure the hosting provider to publish the repository root; no build command is required.
+This repository is a static site. The GitHub Pages workflow runs tests before publishing only the runtime files. For other static hosts, publish `index.html`, `manifest.webmanifest`, `sw.js`, `.nojekyll`, and the `assets/`, `src/`, and `styles/` directories together. No build command is required.
 
 The Supabase URL and publishable key are configured in `src/config.js`. The browser only calls the protected agent RPC functions; PIN validation and tour validation remain server-side in Supabase.

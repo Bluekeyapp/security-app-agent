@@ -5,13 +5,3 @@ Thumbs.db
 test-qrcodes/
 tmp-verification/
 _site/
-
-# Files belonging to the manager repository.
-manager.html
-src/manager.js
-src/remoteStore.js
-styles/manager.css
-tests/all-sites.test.js
-tests/manager-*.test.js
-supabase/
-vendor/
