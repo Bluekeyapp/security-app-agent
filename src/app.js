@@ -27,7 +27,7 @@ import {
   saveActiveTour,
   saveRememberedSession
 } from "./storage.js?v=63";
-import { authenticateAgent, checkAgentSession, fetchAgentRoutes, resumeRememberedAgent, revokeRememberedAgent, saveTourRemote } from "./agentRemoteStore.js";
+import { authenticateAgent, checkAgentSession, fetchAgentRoutes, resumeRememberedAgent, revokeRememberedAgent, saveTourRemote } from "./agentRemoteStore.js?v=66";
 
 // Clear PINs persisted by older versions before rendering or accepting input.
 clearLegacyAgentCredentials();
