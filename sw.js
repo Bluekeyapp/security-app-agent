@@ -1,9 +1,9 @@
-const CACHE_NAME = "security-patrol-agent-v8";
+const CACHE_NAME = "security-patrol-agent-v9";
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./styles/app.css?v=63",
-  "./src/app.js?v=66",
+  "./styles/app.css?v=67",
+  "./src/app.js?v=67",
   "./src/agentRemoteStore.js?v=66",
   "./src/config.js",
   "./src/patrol.js",
