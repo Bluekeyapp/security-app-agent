@@ -9,7 +9,7 @@
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./assets/sab-securite-logo-clean.png" type="image/png">
   <link rel="apple-touch-icon" href="./assets/sab-securite-logo-clean.png">
-  <link rel="stylesheet" href="./styles/app.css?v=62">
+  <link rel="stylesheet" href="./styles/app.css?v=63">
 </head>
 <body>
   <div class="app-shell">
@@ -24,7 +24,14 @@
       <button class="icon-text-button" id="switchAgentButton" type="button" hidden>Agent</button>
     </header>
 
-    <main class="main-view" id="mainView"></main>
+    <main class="main-view" id="mainView">
+      <section class="login-panel startup-panel" id="startupFallback" hidden>
+        <p class="eyebrow">Chargement interrompu</p>
+        <h2>Application indisponible</h2>
+        <p>Une ressource n’a pas pu être chargée. Vérifiez votre connexion, puis réessayez.</p>
+        <button class="primary-button" id="retryAppButton" type="button">Réessayer</button>
+      </section>
+    </main>
   </div>
 
   <section class="sheet scanner-sheet" id="scannerSheet" aria-hidden="true" aria-labelledby="scannerTitle">
@@ -103,6 +110,14 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="./src/app.js?v=62"></script>
+  <script>
+    window.setTimeout(() => {
+      if (document.documentElement.dataset.appReady !== "true") {
+        document.getElementById("startupFallback")?.removeAttribute("hidden");
+      }
+    }, 4000);
+    document.getElementById("retryAppButton")?.addEventListener("click", () => location.reload());
+  </script>
+  <script type="module" src="./src/app.js?v=63"></script>
 </body>
 </html>

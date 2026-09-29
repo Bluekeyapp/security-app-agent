@@ -751,6 +751,16 @@ body.keyboard-open .main-view {
   padding: 18px;
 }
 
+.startup-panel h2 {
+  margin: 6px 0 10px;
+}
+
+.startup-panel p:not(.eyebrow) {
+  margin-bottom: 18px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
 .login-title {
   margin-bottom: 18px;
 }

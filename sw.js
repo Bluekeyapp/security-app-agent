@@ -1,14 +1,14 @@
-const CACHE_NAME = "security-patrol-agent-v4";
+const CACHE_NAME = "security-patrol-agent-v5";
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./styles/app.css",
-  "./src/app.js",
+  "./styles/app.css?v=63",
+  "./src/app.js?v=63",
   "./src/agentRemoteStore.js",
   "./src/config.js",
   "./src/patrol.js",
   "./src/supabaseClient.js",
-  "./src/storage.js",
+  "./src/storage.js?v=63",
   "./manifest.webmanifest",
   "./assets/sab-securite-logo-clean.png"
 ];

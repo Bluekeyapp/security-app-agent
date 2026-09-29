@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "node scripts/serve.mjs",
-    "test": "node --test tests/patrol.test.js tests/storage.test.js"
+    "test": "node --test tests/patrol.test.js tests/storage.test.js tests/offline-shell.test.js"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8"

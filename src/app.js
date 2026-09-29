@@ -26,7 +26,7 @@ import {
   replaceTourInHistory,
   saveActiveTour,
   saveRememberedSession
-} from "./storage.js?v=61";
+} from "./storage.js?v=63";
 import { authenticateAgent, checkAgentSession, fetchAgentRoutes, resumeRememberedAgent, revokeRememberedAgent, saveTourRemote } from "./agentRemoteStore.js";
 
 // Clear PINs persisted by older versions before rendering or accepting input.
@@ -105,6 +105,7 @@ registerServiceWorker();
 
 async function initialize() {
   render();
+  document.documentElement.dataset.appReady = "true";
   flushSessionRevocations();
   window.setInterval(flushSessionRevocations, 60000);
   const remembered = loadRememberedSession();

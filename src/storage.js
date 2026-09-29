@@ -9,14 +9,14 @@ export const STORAGE_KEYS = {
 
 export function clearLegacyAgentCredentials() {
   // Remove credentials saved by earlier releases. The PIN now lives only in memory.
-  localStorage.removeItem(STORAGE_KEYS.agent);
-  localStorage.removeItem(STORAGE_KEYS.agentCredentials);
-  sessionStorage.removeItem(STORAGE_KEYS.agentCredentials);
+  removeItem("local", STORAGE_KEYS.agent);
+  removeItem("local", STORAGE_KEYS.agentCredentials);
+  removeItem("session", STORAGE_KEYS.agentCredentials);
 }
 
 export function clearAgent() {
   clearLegacyAgentCredentials();
-  localStorage.removeItem(STORAGE_KEYS.rememberedSession);
+  removeItem("local", STORAGE_KEYS.rememberedSession);
 }
 
 export function loadRememberedSession() {
@@ -27,7 +27,7 @@ export function saveRememberedSession(session) {
   if (session?.token) {
     writeJson(STORAGE_KEYS.rememberedSession, session);
   } else {
-    localStorage.removeItem(STORAGE_KEYS.rememberedSession);
+    removeItem("local", STORAGE_KEYS.rememberedSession);
   }
 }
 
@@ -45,13 +45,13 @@ export function loadPendingRevocations() {
 export function clearPendingRevocation(token) {
   const remaining = loadPendingRevocations().filter((item) => item !== token);
   if (remaining.length) writeJson(STORAGE_KEYS.pendingRevocations, remaining);
-  else localStorage.removeItem(STORAGE_KEYS.pendingRevocations);
+  else removeItem("local", STORAGE_KEYS.pendingRevocations);
 }
 
 export function clearAgentWorkspace() {
   clearAgent();
-  localStorage.removeItem(STORAGE_KEYS.activeTour);
-  localStorage.removeItem(STORAGE_KEYS.tourHistory);
+  removeItem("local", STORAGE_KEYS.activeTour);
+  removeItem("local", STORAGE_KEYS.tourHistory);
 }
 
 export function loadActiveTour() {
@@ -60,7 +60,7 @@ export function loadActiveTour() {
 
 export function saveActiveTour(tour) {
   if (!tour) {
-    localStorage.removeItem(STORAGE_KEYS.activeTour);
+    removeItem("local", STORAGE_KEYS.activeTour);
     return;
   }
 
@@ -91,12 +91,9 @@ export function replaceTourInHistory(tour) {
 }
 
 function readJson(key, fallback) {
-  const raw = localStorage.getItem(key);
-  if (!raw) {
-    return fallback;
-  }
-
   try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return fallback;
     return JSON.parse(raw);
   } catch (error) {
     console.warn(`Storage parse failed for ${key}:`, error);
@@ -105,5 +102,18 @@ function readJson(key, fallback) {
 }
 
 function writeJson(key, value) {
-  localStorage.setItem(key, JSON.stringify(value));
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (error) {
+    console.warn(`Storage write failed for ${key}:`, error);
+  }
+}
+
+function removeItem(area, key) {
+  try {
+    const storage = area === "session" ? sessionStorage : localStorage;
+    storage.removeItem(key);
+  } catch (error) {
+    console.warn(`Storage cleanup failed for ${key}:`, error);
+  }
 }

@@ -56,3 +56,28 @@ test("global session reset clears active patrol and local history", () => {
   assert.equal(storage.loadActiveTour(), null);
   assert.deepEqual(storage.loadTourHistory(), []);
 });
+
+test("blocked browser storage does not leave the app blank", () => {
+  const localDescriptor = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
+  const sessionDescriptor = Object.getOwnPropertyDescriptor(globalThis, "sessionStorage");
+  const previousWarn = console.warn;
+  try {
+    Object.defineProperty(globalThis, "localStorage", {
+      configurable: true,
+      get: () => { throw new DOMException("Storage blocked", "SecurityError"); }
+    });
+    Object.defineProperty(globalThis, "sessionStorage", {
+      configurable: true,
+      get: () => { throw new DOMException("Storage blocked", "SecurityError"); }
+    });
+    console.warn = () => {};
+    assert.doesNotThrow(() => storage.clearLegacyAgentCredentials());
+    assert.equal(storage.loadActiveTour(), null);
+    assert.deepEqual(storage.loadTourHistory(), []);
+    assert.doesNotThrow(() => storage.saveActiveTour({ id: "tour-1" }));
+  } finally {
+    Object.defineProperty(globalThis, "localStorage", localDescriptor);
+    Object.defineProperty(globalThis, "sessionStorage", sessionDescriptor);
+    console.warn = previousWarn;
+  }
+});
