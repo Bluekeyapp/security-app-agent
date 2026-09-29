@@ -15,16 +15,22 @@ import {
 import {
   addTourToHistory,
   clearAgent,
+  clearPendingRevocation,
+  clearLegacyAgentCredentials,
   clearAgentWorkspace,
+  loadPendingRevocations,
+  loadRememberedSession,
   loadActiveTour,
   loadTourHistory,
+  queueSessionRevocation,
   replaceTourInHistory,
-  saveActiveTour
-} from "./storage.js?v=60";
-import { authenticateAgent, checkAgentSession, fetchAgentRoutes, saveTourRemote } from "./agentRemoteStore.js";
+  saveActiveTour,
+  saveRememberedSession
+} from "./storage.js?v=61";
+import { authenticateAgent, checkAgentSession, fetchAgentRoutes, resumeRememberedAgent, revokeRememberedAgent, saveTourRemote } from "./agentRemoteStore.js";
 
 // Clear PINs persisted by older versions before rendering or accepting input.
-clearAgent();
+clearLegacyAgentCredentials();
 
 const state = {
   agent: null,
@@ -97,8 +103,28 @@ bindEvents();
 initialize();
 registerServiceWorker();
 
-function initialize() {
+async function initialize() {
   render();
+  flushSessionRevocations();
+  window.setInterval(flushSessionRevocations, 60000);
+  const remembered = loadRememberedSession();
+  if (remembered?.token && navigator.onLine) {
+    const result = await resumeRememberedAgent(remembered.token);
+    if (state.agent) return;
+    if (result.ok) {
+      state.agent = result.agent;
+      state.credentials = { token: remembered.token };
+      if (await loadRoutes(state.credentials)) {
+        startAgentSessionMonitoring();
+        render();
+      } else {
+        state.agent = null;
+        state.credentials = null;
+      }
+    } else if (result.invalidCredentials) {
+      clearAgent();
+    }
+  }
   startAgentSessionMonitoring();
 }
 
@@ -137,7 +163,9 @@ function resetViewportZoom() {
 
 function bindEvents() {
   dom.switchAgentButton.addEventListener("click", () => {
+    const token = state.credentials?.token;
     clearAgent();
+    if (token) scheduleSessionRevocation(token);
     saveActiveTour(null);
     state.agent = null;
     state.credentials = null;
@@ -151,7 +179,10 @@ function bindEvents() {
     render();
   });
 
-  window.addEventListener("online", validateAgentSession);
+  window.addEventListener("online", () => {
+    flushSessionRevocations();
+    validateAgentSession();
+  });
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") validateAgentSession();
   });
@@ -173,6 +204,7 @@ function bindEvents() {
     const formData = new FormData(form);
     const badge = String(formData.get("agentBadge") || "").trim();
     const pin = String(formData.get("agentPin") || "");
+    const remember = formData.has("rememberAgent");
     const submitButton = form.querySelector('button[type="submit"]');
 
     if (!badge || !/^\d{6}$/.test(pin)) {
@@ -182,7 +214,7 @@ function bindEvents() {
 
     submitButton.disabled = true;
     submitButton.textContent = "Vérification...";
-    const result = await authenticateAgent({ badge, pin });
+    const result = await authenticateAgent({ badge, pin, remember });
 
     if (!result.ok) {
       submitButton.disabled = false;
@@ -197,15 +229,22 @@ function bindEvents() {
     }
 
     state.agent = result.agent;
-    state.credentials = { badge: result.agent.badge, pin, sessionEpoch: result.sessionEpoch };
+    state.credentials = result.token
+      ? { token: result.token }
+      : { badge: result.agent.badge, pin, sessionEpoch: result.sessionEpoch };
     const routeLoaded = await loadRoutes(state.credentials);
     if (!routeLoaded) {
+      if (result.token) scheduleSessionRevocation(result.token);
       state.agent = null;
       state.credentials = null;
       showToast("Configuration du site indisponible");
       render();
       return;
     }
+    const previous = loadRememberedSession()?.token;
+    if (previous && previous !== result.token) scheduleSessionRevocation(previous);
+    clearAgent();
+    if (result.token) saveRememberedSession({ token: result.token });
     startAgentSessionMonitoring();
     render();
   });
@@ -339,6 +378,18 @@ function startAgentSessionMonitoring() {
   sessionMonitorId = window.setInterval(validateAgentSession, 15000);
 }
 
+function scheduleSessionRevocation(token) {
+  queueSessionRevocation(token);
+  flushSessionRevocations();
+}
+
+async function flushSessionRevocations() {
+  if (!navigator.onLine) return;
+  for (const token of loadPendingRevocations()) {
+    if (await revokeRememberedAgent(token)) clearPendingRevocation(token);
+  }
+}
+
 async function validateAgentSession() {
   if (sessionCheckInFlight || !state.agent || !state.credentials || !navigator.onLine) return;
   sessionCheckInFlight = true;
@@ -419,6 +470,10 @@ function renderLogin() {
         <label>
           Code PIN
           <input name="agentPin" type="password" inputmode="numeric" autocomplete="off" pattern="[0-9]{6}" minlength="6" maxlength="6" required>
+        </label>
+        <label class="remember-agent">
+          <input name="rememberAgent" type="checkbox">
+          <span>Rester connecté <small>Sur cet appareil uniquement · 30 jours</small></span>
         </label>
         <button class="primary-button" type="submit">Se connecter</button>
       </form>

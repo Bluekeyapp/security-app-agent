@@ -1,15 +1,51 @@
 export const STORAGE_KEYS = {
   agent: "security_patrol_agent",
   agentCredentials: "security_patrol_agent_credentials",
+  rememberedSession: "security_patrol_remembered_session",
+  pendingRevocations: "security_patrol_pending_revocations",
   activeTour: "security_patrol_active_tour",
   tourHistory: "security_patrol_tour_history"
 };
 
-export function clearAgent() {
+export function clearLegacyAgentCredentials() {
   // Remove credentials saved by earlier releases. The PIN now lives only in memory.
   localStorage.removeItem(STORAGE_KEYS.agent);
   localStorage.removeItem(STORAGE_KEYS.agentCredentials);
   sessionStorage.removeItem(STORAGE_KEYS.agentCredentials);
+}
+
+export function clearAgent() {
+  clearLegacyAgentCredentials();
+  localStorage.removeItem(STORAGE_KEYS.rememberedSession);
+}
+
+export function loadRememberedSession() {
+  return readJson(STORAGE_KEYS.rememberedSession, null);
+}
+
+export function saveRememberedSession(session) {
+  if (session?.token) {
+    writeJson(STORAGE_KEYS.rememberedSession, session);
+  } else {
+    localStorage.removeItem(STORAGE_KEYS.rememberedSession);
+  }
+}
+
+export function queueSessionRevocation(token) {
+  if (!token) return;
+  const pending = readJson(STORAGE_KEYS.pendingRevocations, []);
+  writeJson(STORAGE_KEYS.pendingRevocations, [...new Set([...(Array.isArray(pending) ? pending : []), token])]);
+}
+
+export function loadPendingRevocations() {
+  const pending = readJson(STORAGE_KEYS.pendingRevocations, []);
+  return Array.isArray(pending) ? pending : [];
+}
+
+export function clearPendingRevocation(token) {
+  const remaining = loadPendingRevocations().filter((item) => item !== token);
+  if (remaining.length) writeJson(STORAGE_KEYS.pendingRevocations, remaining);
+  else localStorage.removeItem(STORAGE_KEYS.pendingRevocations);
 }
 
 export function clearAgentWorkspace() {

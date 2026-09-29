@@ -24,6 +24,24 @@ test("a new app version removes PINs persisted by older releases", () => {
   assert.equal(sessionStorage.getItem(storage.STORAGE_KEYS.agentCredentials), null);
 });
 
+test("legacy PIN cleanup preserves a remembered token without storing the PIN", () => {
+  storage.saveRememberedSession({ token: "opaque-token" });
+  localStorage.setItem(storage.STORAGE_KEYS.agentCredentials, JSON.stringify({ pin: "123456" }));
+  storage.clearLegacyAgentCredentials();
+  assert.deepEqual(storage.loadRememberedSession(), { token: "opaque-token" });
+  assert.equal(localStorage.getItem(storage.STORAGE_KEYS.agentCredentials), null);
+  storage.clearAgent();
+  assert.equal(storage.loadRememberedSession(), null);
+});
+
+test("a pending server revocation survives local sign out", () => {
+  storage.queueSessionRevocation("opaque-token");
+  storage.clearAgent();
+  assert.deepEqual(storage.loadPendingRevocations(), ["opaque-token"]);
+  storage.clearPendingRevocation("opaque-token");
+  assert.deepEqual(storage.loadPendingRevocations(), []);
+});
+
 test("signing out retains an unfinished patrol for reauthentication", () => {
   const tour = { id: "tour-1", status: "active" };
   storage.saveActiveTour(tour);

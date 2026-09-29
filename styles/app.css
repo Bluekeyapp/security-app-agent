@@ -760,6 +760,31 @@ body.keyboard-open .main-view {
   gap: 12px;
 }
 
+.remember-agent {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+.remember-agent input {
+  width: 18px;
+  min-height: 18px;
+  height: 18px;
+  margin: 2px 0 0;
+  accent-color: var(--blue);
+}
+
+.remember-agent small {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+
 label {
   display: grid;
   gap: 7px;
