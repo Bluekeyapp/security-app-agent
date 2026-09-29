@@ -6,7 +6,7 @@ The mobile application used by security agents during patrols.
 
 - Agent sign-in with badge and PIN.
 - By default, the PIN stays in memory while the page is open. Agents sign in again after a refresh or browser restart; an unfinished patrol is retained locally for reauthentication.
-- Agents may select « Rester connecté » on a personal device. This saves a random 30-day session token locally, never the PIN. Signing out revokes the token (or queues revocation until the device reconnects). PIN resets, agent deactivation, and the manager's global session reset also invalidate it.
+- Agents may select « Rester connecté » on a personal device. This saves a random 30-day session token locally, never the PIN. PIN resets, agent deactivation, and the manager's global session reset also invalidate it.
 - Route and checkpoint loading from Supabase.
 - QR scanning, GPS capture, incidents, cancellations, comments, and tour history.
 - Offline interface caching through the service worker.
