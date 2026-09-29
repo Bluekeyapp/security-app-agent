@@ -30,6 +30,6 @@ npm test
 
 ## Deployment
 
-This repository is a static site. The GitHub Pages workflow runs tests before publishing only the runtime files. For other static hosts, publish `index.html`, `manifest.webmanifest`, `sw.js`, `.nojekyll`, and the `assets/`, `src/`, and `styles/` directories together. No build command is required.
+This repository is a static site. Cloudflare Pages publishes the `main` branch at https://security-app-agent.pages.dev/. GitHub Actions runs tests on pushes and pull requests. No build command is required; publish `index.html`, `manifest.webmanifest`, `sw.js`, and the `assets/`, `src/`, and `styles/` directories together.
 
 The Supabase URL and publishable key are configured in `src/config.js`. The browser only calls the protected agent RPC functions; PIN validation and tour validation remain server-side in Supabase.
