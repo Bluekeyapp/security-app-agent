@@ -65,7 +65,7 @@ const scanner = {
 const dom = {
   viewportMeta: document.querySelector('meta[name="viewport"]'),
   mainView: document.getElementById("mainView"),
-  switchAgentButton: document.getElementById("switchAgentButton"),
+
   toast: document.getElementById("toast"),
   scannerSheet: document.getElementById("scannerSheet"),
   closeScannerButton: document.getElementById("closeScannerButton"),
@@ -163,22 +163,7 @@ function resetViewportZoom() {
 }
 
 function bindEvents() {
-  dom.switchAgentButton.addEventListener("click", () => {
-    const token = state.credentials?.token;
-    clearAgent();
-    if (token) scheduleSessionRevocation(token);
-    saveActiveTour(null);
-    state.agent = null;
-    state.credentials = null;
-    state.routes = [];
-    state.route = null;
-    state.activeTour = null;
-    state.pendingStart = false;
-    state.commentTour = null;
-    state.lastOutcomeTour = null;
-    startAgentSessionMonitoring();
-    render();
-  });
+
 
   window.addEventListener("online", () => {
     flushSessionRevocations();
@@ -430,8 +415,8 @@ function forceAgentLogout(message) {
 
 function render() {
   resetViewportZoom();
-  dom.switchAgentButton.hidden = !state.agent;
-  dom.switchAgentButton.textContent = state.agent ? state.agent.badge : "Agent";
+
+
 
   if (!state.agent) {
     dom.mainView.innerHTML = renderLogin();
