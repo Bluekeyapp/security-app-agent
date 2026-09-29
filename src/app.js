@@ -17,26 +17,18 @@ import {
   clearAgent,
   clearAgentWorkspace,
   loadActiveTour,
-  loadAgent,
-  loadAgentCredentials,
   loadTourHistory,
   replaceTourInHistory,
-  saveActiveTour,
-  saveAgent,
-  saveAgentCredentials
-} from "./storage.js?v=59";
+  saveActiveTour
+} from "./storage.js?v=60";
 import { authenticateAgent, checkAgentSession, fetchAgentRoutes, saveTourRemote } from "./agentRemoteStore.js";
 
-const savedAgent = loadAgent();
-const savedCredentials = loadAgentCredentials();
-const hasValidSession = savedAgent
-  && savedCredentials?.badge === savedAgent.badge
-  && savedCredentials?.pin
-  && savedCredentials?.sessionEpoch;
+// Clear PINs persisted by older versions before rendering or accepting input.
+clearAgent();
 
 const state = {
-  agent: hasValidSession ? savedAgent : null,
-  credentials: hasValidSession ? savedCredentials : null,
+  agent: null,
+  credentials: null,
   activeTour: loadActiveTour(),
   history: loadTourHistory(),
   routes: [],
@@ -105,16 +97,7 @@ bindEvents();
 initialize();
 registerServiceWorker();
 
-async function initialize() {
-  if (state.agent) {
-    const sessionResult = await checkAgentSession(state.credentials);
-    if (sessionResult.ok && !sessionResult.valid) {
-      resetAgentState();
-    } else {
-      const loaded = await loadRoutes(state.credentials);
-      if (!loaded) resetAgentState();
-    }
-  }
+function initialize() {
   render();
   startAgentSessionMonitoring();
 }
@@ -190,7 +173,6 @@ function bindEvents() {
     const formData = new FormData(form);
     const badge = String(formData.get("agentBadge") || "").trim();
     const pin = String(formData.get("agentPin") || "");
-    const rememberMe = formData.get("rememberMe") === "on";
     const submitButton = form.querySelector('button[type="submit"]');
 
     if (!badge || !/^\d{6}$/.test(pin)) {
@@ -224,8 +206,6 @@ function bindEvents() {
       render();
       return;
     }
-    saveAgent(result.agent);
-    saveAgentCredentials(state.credentials, rememberMe);
     startAgentSessionMonitoring();
     render();
   });
@@ -431,22 +411,14 @@ function renderLogin() {
         <p class="eyebrow">Accès sécurisé</p>
         <h2>Connexion agent</h2>
       </div>
-      <form class="field-stack" id="loginForm">
+      <form class="field-stack" id="loginForm" autocomplete="off">
         <label>
           Matricule
           <input name="agentBadge" type="text" autocomplete="username" maxlength="32" required>
         </label>
         <label>
           Code PIN
-          <input name="agentPin" type="password" inputmode="numeric" autocomplete="current-password" pattern="[0-9]{6}" minlength="6" maxlength="6" required>
-        </label>
-        <label class="remember-me">
-          <input name="rememberMe" type="checkbox" aria-describedby="rememberMeHint">
-          <span class="remember-me-copy">
-            <span class="remember-me-title">Rester connecté</span>
-            <span class="remember-me-hint" id="rememberMeHint">Conserver votre accès sur cet appareil.</span>
-          </span>
-          <span class="remember-me-toggle" aria-hidden="true"><span></span></span>
+          <input name="agentPin" type="password" inputmode="numeric" autocomplete="off" pattern="[0-9]{6}" minlength="6" maxlength="6" required>
         </label>
         <button class="primary-button" type="submit">Se connecter</button>
       </form>

@@ -5,15 +5,8 @@ export const STORAGE_KEYS = {
   tourHistory: "security_patrol_tour_history"
 };
 
-export function loadAgent() {
-  return readJson(STORAGE_KEYS.agent, null);
-}
-
-export function saveAgent(agent) {
-  writeJson(STORAGE_KEYS.agent, agent);
-}
-
 export function clearAgent() {
+  // Remove credentials saved by earlier releases. The PIN now lives only in memory.
   localStorage.removeItem(STORAGE_KEYS.agent);
   localStorage.removeItem(STORAGE_KEYS.agentCredentials);
   sessionStorage.removeItem(STORAGE_KEYS.agentCredentials);
@@ -23,18 +16,6 @@ export function clearAgentWorkspace() {
   clearAgent();
   localStorage.removeItem(STORAGE_KEYS.activeTour);
   localStorage.removeItem(STORAGE_KEYS.tourHistory);
-}
-
-export function loadAgentCredentials() {
-  return readSessionJson(STORAGE_KEYS.agentCredentials, null)
-    ?? readJson(STORAGE_KEYS.agentCredentials, null);
-}
-
-export function saveAgentCredentials(credentials, rememberMe = false) {
-  localStorage.removeItem(STORAGE_KEYS.agentCredentials);
-  sessionStorage.removeItem(STORAGE_KEYS.agentCredentials);
-  const targetStorage = rememberMe ? localStorage : sessionStorage;
-  targetStorage.setItem(STORAGE_KEYS.agentCredentials, JSON.stringify(credentials));
 }
 
 export function loadActiveTour() {
@@ -89,18 +70,4 @@ function readJson(key, fallback) {
 
 function writeJson(key, value) {
   localStorage.setItem(key, JSON.stringify(value));
-}
-
-function readSessionJson(key, fallback) {
-  const raw = sessionStorage.getItem(key);
-  if (!raw) {
-    return fallback;
-  }
-
-  try {
-    return JSON.parse(raw);
-  } catch (error) {
-    console.warn(`Session storage parse failed for ${key}:`, error);
-    return fallback;
-  }
 }
