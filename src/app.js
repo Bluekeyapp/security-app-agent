@@ -473,7 +473,11 @@ function renderLogin() {
         </label>
         <label class="remember-agent">
           <input name="rememberAgent" type="checkbox">
-          <span>Rester connecté <small>Sur cet appareil uniquement · 30 jours</small></span>
+          <span class="remember-agent-copy">
+            <span>Rester connecté</span>
+            <small>Sur cet appareil uniquement · 30 jours</small>
+          </span>
+          <span class="remember-agent-switch" aria-hidden="true"></span>
         </label>
         <button class="primary-button" type="submit">Se connecter</button>
       </form>

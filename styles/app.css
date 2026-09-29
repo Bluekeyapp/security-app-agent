@@ -762,27 +762,92 @@ body.keyboard-open .main-view {
 
 .remember-agent {
   display: flex;
-  align-items: flex-start;
-  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-height: 66px;
+  padding: 11px 13px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #111720;
   cursor: pointer;
   font-size: 0.9rem;
   color: var(--text);
+  transition: border-color 160ms ease, background-color 160ms ease;
+}
+
+.remember-agent:hover,
+.remember-agent:focus-within {
+  border-color: var(--blue);
+  background: #151e2d;
 }
 
 .remember-agent input {
+  position: absolute;
+  width: 1px;
+  min-height: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+}
+
+.remember-agent-copy {
+  display: grid;
+  gap: 3px;
+}
+
+.remember-agent-switch {
+  position: relative;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 26px;
+  border: 1px solid #566174;
+  border-radius: 999px;
+  background: #303948;
+  transition: background-color 160ms ease, border-color 160ms ease;
+}
+
+.remember-agent-switch::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
   width: 18px;
-  min-height: 18px;
   height: 18px;
-  margin: 2px 0 0;
-  accent-color: var(--blue);
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px #0005;
+  transition: transform 160ms ease;
+}
+
+.remember-agent input:checked ~ .remember-agent-switch {
+  border-color: var(--blue);
+  background: var(--blue);
+}
+
+.remember-agent input:checked ~ .remember-agent-switch::after {
+  transform: translateX(18px);
+}
+
+.remember-agent input:focus-visible ~ .remember-agent-switch {
+  outline: 2px solid #fff;
+  outline-offset: 3px;
 }
 
 .remember-agent small {
   display: block;
-  margin-top: 3px;
   color: var(--muted);
   font-size: 0.75rem;
   font-weight: 400;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .remember-agent,
+  .remember-agent-switch,
+  .remember-agent-switch::after {
+    transition: none;
+  }
 }
 
 label {
