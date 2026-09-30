@@ -45,8 +45,7 @@ const state = {
   scannerOpen: false,
   cancelOpen: false,
   selectedCancelReason: "",
-  incidentOpen: false,
-  selectedIncidentCategory: "Incident"
+  incidentOpen: false
 };
 
 const scanner = {
@@ -348,13 +347,29 @@ function bindEvents() {
       closeIncidentSheet();
       return;
     }
-    const category = event.target.closest("[data-incident-category]")?.dataset.incidentCategory;
-    if (category) {
-      state.selectedIncidentCategory = category;
-      updateIncidentButtons();
-    }
   });
   dom.incidentForm.addEventListener("submit", submitIncident);
+  dom.incidentPhoto.addEventListener("change", () => {
+    document.getElementById("incidentPhotoName").textContent = dom.incidentPhoto.files[0]?.name || "Prendre une photo ou choisir une image";
+  });
+  dom.incidentSheet.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeIncidentSheet();
+    }
+    if (event.key === "Tab") {
+      const controls = [...dom.incidentSheet.querySelectorAll("button:not(:disabled), input, textarea")];
+      const first = controls[0];
+      const last = controls.at(-1);
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+  });
 }
 
 function startAgentSessionMonitoring() {
@@ -552,8 +567,8 @@ function renderActiveTour(tour) {
       <div class="dock">
         <p class="dock-hint">${readyToClose ? "Dernière étape : retour au Poste A." : "Quand vous arrivez au prochain point, lancez la caméra."}</p>
         <div class="two-actions">
-          <button class="secondary-button" type="button" data-action="incident">Signaler</button>
           <button class="primary-button" type="button" data-action="scan">${primaryLabel}</button>
+          <button class="report-button" type="button" data-action="incident">Signaler</button>
         </div>
         <button class="secondary-button" type="button" data-action="cancel">Annuler</button>
       </div>
@@ -1143,23 +1158,26 @@ function updateReasonButtons() {
 function openIncidentSheet() {
   if (!state.activeTour) return;
   state.incidentOpen = true;
-  state.selectedIncidentCategory = "Incident";
   dom.incidentForm.reset();
+  const submitButton = dom.incidentForm.querySelector('[type="submit"]');
+  submitButton.disabled = false;
+  submitButton.textContent = "Enregistrer le signalement";
+  document.getElementById("incidentPhotoName").textContent = "Prendre une photo ou choisir une image";
+  document.body.classList.add("incident-open");
+  document.querySelector(".app-shell").inert = true;
   dom.incidentSheet.classList.add("is-open");
   dom.incidentSheet.setAttribute("aria-hidden", "false");
-  updateIncidentButtons();
+  dom.incidentSheet.querySelector(".sheet-panel").scrollTop = 0;
+  dom.closeIncidentButton.focus({ preventScroll: true });
 }
 
 function closeIncidentSheet() {
   state.incidentOpen = false;
   dom.incidentSheet.classList.remove("is-open");
   dom.incidentSheet.setAttribute("aria-hidden", "true");
-}
-
-function updateIncidentButtons() {
-  dom.incidentSheet.querySelectorAll("[data-incident-category]").forEach((button) => {
-    button.classList.toggle("selected", button.dataset.incidentCategory === state.selectedIncidentCategory);
-  });
+  document.body.classList.remove("incident-open");
+  document.querySelector(".app-shell").inert = false;
+  dom.mainView.querySelector('[data-action="incident"]')?.focus({ preventScroll: true });
 }
 
 async function submitIncident(event) {
@@ -1175,7 +1193,7 @@ async function submitIncident(event) {
       compressIncidentPhoto(dom.incidentPhoto.files[0])
     ]);
     const updated = addTourIncident(state.activeTour, {
-      category: state.selectedIncidentCategory,
+      category: "Incident",
       note: dom.incidentNote.value,
       photoData,
       gps,
@@ -1184,7 +1202,7 @@ async function submitIncident(event) {
     state.activeTour = updated;
     persistTour(updated);
     closeIncidentSheet();
-    showToast(state.selectedIncidentCategory === "Urgence" ? "Urgence signalée" : "Incident signalé");
+    showToast("Incident signalé");
     render();
   } catch (error) {
     console.warn("Incident capture failed:", error);

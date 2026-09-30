@@ -9,7 +9,7 @@
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./assets/sab-securite-logo-clean.png" type="image/png">
   <link rel="apple-touch-icon" href="./assets/sab-securite-logo-clean.png">
-  <link rel="stylesheet" href="./styles/app.css?v=67">
+  <link rel="stylesheet" href="./styles/app.css?v=68">
 </head>
 <body>
   <div class="app-shell">
@@ -78,32 +78,33 @@
     </div>
   </section>
 
-  <section class="sheet" id="incidentSheet" aria-hidden="true" aria-labelledby="incidentTitle">
-    <div class="sheet-panel" role="dialog" aria-modal="true">
+  <section class="sheet incident-screen" id="incidentSheet" aria-hidden="true" aria-labelledby="incidentTitle">
+    <div class="sheet-panel" role="dialog" aria-modal="true" aria-labelledby="incidentTitle">
       <div class="sheet-header">
         <div>
           <p class="eyebrow">Signalement</p>
           <h2 id="incidentTitle">Ajouter un incident</h2>
         </div>
-        <button class="close-button" id="closeIncidentButton" type="button" aria-label="Fermer">×</button>
+        <button class="close-button" id="closeIncidentButton" type="button" aria-label="Fermer le signalement">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
       </div>
       <form class="field-stack" id="incidentForm">
-        <div class="incident-categories" role="group" aria-label="Catégorie de l'incident">
-          <button type="button" data-incident-category="Incident">Incident</button>
-          <button type="button" data-incident-category="Urgence">Urgence</button>
-          <button type="button" data-incident-category="Matériel">Matériel</button>
-          <button type="button" data-incident-category="Accès impossible">Accès impossible</button>
-        </div>
+        <p class="incident-intro">Décrivez la situation et ajoutez une photo si nécessaire.</p>
         <label>
           Description
           <textarea id="incidentNote" rows="4" maxlength="500" placeholder="Décrivez brièvement la situation" data-keyboard-field required></textarea>
         </label>
-        <label>
-          Photo facultative
+        <label class="incident-photo-picker">
+          <span>Photo <span class="incident-optional">facultative</span></span>
           <input id="incidentPhoto" type="file" accept="image/*" capture="environment">
+          <span class="incident-photo-control">
+            <span class="incident-photo-icon" aria-hidden="true">＋</span>
+            <span><strong>Ajouter une photo</strong><span id="incidentPhotoName" class="incident-photo-name" aria-live="polite">Prendre une photo ou choisir une image</span></span>
+          </span>
         </label>
         <p class="form-help">L'heure et la position GPS seront ajoutées automatiquement.</p>
-        <button class="danger-button" type="submit">Enregistrer le signalement</button>
+        <button class="report-button" type="submit">Enregistrer le signalement</button>
       </form>
     </div>
   </section>
@@ -118,6 +119,6 @@
     }, 4000);
     document.getElementById("retryAppButton")?.addEventListener("click", () => location.reload());
   </script>
-  <script type="module" src="./src/app.js?v=67"></script>
+  <script type="module" src="./src/app.js?v=68"></script>
 </body>
 </html>
