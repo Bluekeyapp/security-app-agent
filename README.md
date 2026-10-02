@@ -1,4 +1,4 @@
-# SAB Security Agent
+# SAB Agent
 
 The mobile application used by security agents during patrols.
 

@@ -35,5 +35,5 @@ const server = createServer((request, response) => {
 });
 
 server.listen(port, () => {
-  console.log(`SAB Security running at http://localhost:${port}`);
+  console.log(`SAB Agent running at http://localhost:${port}`);
 });
