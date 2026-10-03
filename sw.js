@@ -1,4 +1,4 @@
-const CACHE_NAME = "security-patrol-agent-v11";
+const CACHE_NAME = "security-patrol-agent-v12";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -10,7 +10,8 @@ const APP_SHELL = [
   "./src/supabaseClient.js",
   "./src/storage.js?v=63",
   "./manifest.webmanifest",
-  "./assets/sab-agent-logo.png"
+  "./assets/sab-agent-logo.png",
+  "./assets/sab-agent-apple-touch-icon.png"
 ];
 
 self.addEventListener("install", (event) => {
