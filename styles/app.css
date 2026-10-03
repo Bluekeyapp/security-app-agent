@@ -67,6 +67,19 @@ button {
   margin: 0 auto;
 }
 
+.sync-status {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.sync-status[data-status="pending"] { color: var(--amber); }
+.sync-status[data-status="storage-error"] { color: var(--red); }
+
 .manager-shell {
   min-height: 100dvh;
   padding: calc(20px + var(--safe-top)) 24px calc(32px + var(--safe-bottom));

@@ -25,7 +25,7 @@ export function loadRememberedSession() {
 
 export function saveRememberedSession(session) {
   if (session?.token) {
-    writeJson(STORAGE_KEYS.rememberedSession, session);
+    return writeJson(STORAGE_KEYS.rememberedSession, session);
   } else {
     removeItem("local", STORAGE_KEYS.rememberedSession);
   }
@@ -48,8 +48,7 @@ export function clearPendingRevocation(token) {
   else removeItem("local", STORAGE_KEYS.pendingRevocations);
 }
 
-export function clearAgentWorkspace() {
-  clearAgent();
+export function clearLegacyTours() {
   removeItem("local", STORAGE_KEYS.activeTour);
   removeItem("local", STORAGE_KEYS.tourHistory);
 }
@@ -64,7 +63,7 @@ export function saveActiveTour(tour) {
     return;
   }
 
-  writeJson(STORAGE_KEYS.activeTour, tour);
+  return writeJson(STORAGE_KEYS.activeTour, tour);
 }
 
 export function loadTourHistory() {
@@ -73,7 +72,7 @@ export function loadTourHistory() {
 }
 
 export function saveTourHistory(history) {
-  writeJson(STORAGE_KEYS.tourHistory, Array.isArray(history) ? history.slice(0, 25) : []);
+  return writeJson(STORAGE_KEYS.tourHistory, Array.isArray(history) ? history.slice(0, 25) : []);
 }
 
 export function addTourToHistory(tour) {
@@ -104,8 +103,10 @@ function readJson(key, fallback) {
 function writeJson(key, value) {
   try {
     localStorage.setItem(key, JSON.stringify(value));
+    return true;
   } catch (error) {
     console.warn(`Storage write failed for ${key}:`, error);
+    return false;
   }
 }
 

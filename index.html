@@ -9,7 +9,7 @@
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./assets/sab-agent-logo.png" type="image/png">
   <link rel="apple-touch-icon" sizes="180x180" href="./assets/sab-agent-apple-touch-icon.png">
-  <link rel="stylesheet" href="./styles/app.css?v=68">
+  <link rel="stylesheet" href="./styles/app.css?v=69">
 </head>
 <body>
   <div class="app-shell">
@@ -24,6 +24,7 @@
       
     </header>
 
+    <p class="sync-status" id="syncStatus" role="status" aria-live="polite" hidden></p>
     <main class="main-view" id="mainView">
       <section class="login-panel startup-panel" id="startupFallback" hidden>
         <p class="eyebrow">Chargement interrompu</p>
@@ -119,6 +120,6 @@
     }, 4000);
     document.getElementById("retryAppButton")?.addEventListener("click", () => location.reload());
   </script>
-  <script type="module" src="./src/app.js?v=68"></script>
+  <script type="module" src="./src/app.js?v=69"></script>
 </body>
 </html>

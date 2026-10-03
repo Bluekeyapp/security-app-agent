@@ -16,6 +16,8 @@ test("offline cache includes the exact versioned startup modules", async () => {
   for (const asset of [stylesheet, entry, `./src/${storage.slice(2)}`]) {
     assert.ok(worker.includes(JSON.stringify(asset)), `${asset} must be pre-cached`);
   }
+  const imports = [...app.matchAll(/from "(\.\/[^"\n]+\.js(?:\?v=\d+)?)"/g)].map((match) => `./src/${match[1].slice(2)}`);
+  for (const asset of imports) assert.ok(worker.includes(JSON.stringify(asset)), `${asset} must be pre-cached`);
 });
 
 test("startup failure shows a retry panel instead of a blank view", async () => {

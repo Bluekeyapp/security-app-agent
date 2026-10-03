@@ -49,10 +49,13 @@ test("signing out retains an unfinished patrol for reauthentication", () => {
   assert.deepEqual(storage.loadActiveTour(), tour);
 });
 
-test("global session reset clears active patrol and local history", () => {
+test("clearing credentials preserves legacy patrols until migration commits", () => {
   storage.saveActiveTour({ id: "tour-1", status: "active" });
   storage.saveTourHistory([{ id: "tour-old", status: "completed" }]);
-  storage.clearAgentWorkspace();
+  storage.clearAgent();
+  assert.equal(storage.loadActiveTour().id, "tour-1");
+  assert.equal(storage.loadTourHistory()[0].id, "tour-old");
+  storage.clearLegacyTours();
   assert.equal(storage.loadActiveTour(), null);
   assert.deepEqual(storage.loadTourHistory(), []);
 });

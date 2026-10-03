@@ -1,14 +1,16 @@
-const CACHE_NAME = "security-patrol-agent-v12";
+const CACHE_NAME = "security-patrol-agent-v13";
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./styles/app.css?v=68",
-  "./src/app.js?v=68",
+  "./styles/app.css?v=69",
+  "./src/app.js?v=69",
   "./src/agentRemoteStore.js?v=66",
   "./src/config.js",
   "./src/patrol.js",
   "./src/supabaseClient.js",
-  "./src/storage.js?v=63",
+  "./src/storage.js?v=64",
+  "./src/tourStore.js?v=1",
+  "./src/tourSync.js?v=1",
   "./manifest.webmanifest",
   "./assets/sab-agent-logo.png",
   "./assets/sab-agent-apple-touch-icon.png"

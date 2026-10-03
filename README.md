@@ -10,6 +10,9 @@ The mobile application used by security agents during patrols.
 - Route and checkpoint loading from Supabase.
 - QR scanning, GPS capture, incidents, cancellations, comments, and tour history.
 - Offline interface caching through the service worker.
+- Patrols and incident photos are committed to IndexedDB before showing success. Failed local saves leave the current patrol unchanged and show a storage warning.
+- Pending uploads retry after login, reconnecting, returning to the app, and every 30 seconds while signed in and online. Only the current agent's records are uploaded or displayed.
+- Session expiry removes credentials while retaining patrols for reauthentication. Synchronized history is limited to 25 completed patrols per agent; unsent records and active patrols are retained.
 - Agent-only client code and remote data calls.
 
 The manager dashboard is maintained in the separate `security-app-manager` repository.
@@ -27,7 +30,12 @@ Open `http://localhost:8080/`. Camera and location features require localhost or
 
 ```powershell
 npm test
+npm run test:browser
 ```
+
+The browser checks use Microsoft Edge on Windows. On other systems, run `npx playwright install chromium` first. Tests simulate server responses, storage failures, camera/GPS inputs, and offline recovery; they do not validate live Supabase authorization or physical-device behavior.
+
+Existing localStorage patrols migrate to IndexedDB on startup. The old copy is removed only after every record has been saved, and existing IndexedDB records take precedence. Login still requires connectivity to validate credentials and load authorized routes. Pending work can resume after reauthentication, but browser-data deletion or uninstalling a home-screen app can remove local records.
 
 ## Deployment
 

@@ -13,21 +13,20 @@ import {
   startTour
 } from "./patrol.js";
 import {
-  addTourToHistory,
   clearAgent,
   clearPendingRevocation,
   clearLegacyAgentCredentials,
-  clearAgentWorkspace,
+  clearLegacyTours,
   loadPendingRevocations,
   loadRememberedSession,
   loadActiveTour,
   loadTourHistory,
   queueSessionRevocation,
-  replaceTourInHistory,
-  saveActiveTour,
   saveRememberedSession
-} from "./storage.js?v=63";
+} from "./storage.js?v=64";
 import { authenticateAgent, checkAgentSession, fetchAgentRoutes, resumeRememberedAgent, revokeRememberedAgent, saveTourRemote } from "./agentRemoteStore.js?v=66";
+import { migrateLegacyTours, tourStore } from "./tourStore.js?v=1";
+import { createTourSync, selectAgentTours } from "./tourSync.js?v=1";
 
 // Clear PINs persisted by older versions before rendering or accepting input.
 clearLegacyAgentCredentials();
@@ -35,8 +34,10 @@ clearLegacyAgentCredentials();
 const state = {
   agent: null,
   credentials: null,
-  activeTour: loadActiveTour(),
-  history: loadTourHistory(),
+  activeTour: null,
+  history: [],
+  syncStatus: "",
+  session: null,
   routes: [],
   route: null,
   pendingStart: false,
@@ -64,6 +65,7 @@ const scanner = {
 const dom = {
   viewportMeta: document.querySelector('meta[name="viewport"]'),
   mainView: document.getElementById("mainView"),
+  syncStatus: document.getElementById("syncStatus"),
 
   toast: document.getElementById("toast"),
   scannerSheet: document.getElementById("scannerSheet"),
@@ -86,6 +88,8 @@ const dom = {
 let toastTimer = null;
 let sessionMonitorId = null;
 let sessionCheckInFlight = false;
+let authAttempt = 0;
+let commentSaveInFlight = false;
 
 const QR_SCAN_OPTIONS = {
   delayBetweenScanAttempts: 120,
@@ -97,6 +101,37 @@ const LOCATION_MAX_AGE_MS = 30000;
 const LOCATION_TIMEOUT_MS = 12000;
 const VIEWPORT_CONTENT = "width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover";
 
+const tourSync = createTourSync({
+  store: tourStore,
+  send: saveTourRemote,
+  getSession: () => state.session,
+  isOnline: () => navigator.onLine,
+  onStatus: (status, agentId) => {
+    if (state.agent?.id !== agentId || state.syncStatus === "storage-error") return;
+    state.syncStatus = status;
+    updateSyncStatus();
+  },
+  onAuthRejected: (agentId) => {
+    if (state.agent?.id === agentId) forceAgentLogout("Session agent expirée · vos tournées sont conservées");
+  }
+});
+let workspaceReady;
+function prepareWorkspace() {
+  if (!workspaceReady) {
+    workspaceReady = migrateLegacyTours(tourStore, [loadActiveTour(), ...loadTourHistory()], clearLegacyTours)
+      .then(() => true)
+      .catch((error) => {
+        console.warn("Patrol recovery failed:", error);
+        workspaceReady = null;
+        state.syncStatus = "storage-error";
+        updateSyncStatus();
+        return false;
+      });
+  }
+  return workspaceReady;
+}
+prepareWorkspace();
+
 setupViewportHeight();
 bindEvents();
 initialize();
@@ -107,19 +142,28 @@ async function initialize() {
   document.documentElement.dataset.appReady = "true";
   flushSessionRevocations();
   window.setInterval(flushSessionRevocations, 60000);
+  window.setInterval(() => tourSync.flush(), 30000);
   const remembered = loadRememberedSession();
   if (remembered?.token && navigator.onLine) {
-    const result = await resumeRememberedAgent(remembered.token);
-    if (state.agent) return;
+    const attempt = authAttempt;
+    const result = await resumeRememberedAgent(remembered.token).catch((error) => ({ ok: false, error }));
+    if (state.agent || authAttempt !== attempt) return;
     if (result.ok) {
       state.agent = result.agent;
       state.credentials = { token: remembered.token };
+      state.session = { agentId: state.agent.id, credentials: state.credentials };
+      if (!await restoreAgentWorkspace()) { resetAgentState(); render(); return; }
       if (await loadRoutes(state.credentials)) {
         startAgentSessionMonitoring();
         render();
+        tourSync.flush();
       } else {
         state.agent = null;
         state.credentials = null;
+        state.session = null;
+        state.activeTour = null;
+        state.history = [];
+        updateSyncStatus();
       }
     } else if (result.invalidCredentials) {
       clearAgent();
@@ -129,13 +173,47 @@ async function initialize() {
 }
 
 async function loadRoutes(credentials) {
+  const session = state.session;
   const result = await fetchAgentRoutes(credentials);
+  if (state.session !== session) return false;
   if (!result.ok) console.warn("Site configuration load failed:", result.error);
   state.routes = result.ok ? result.routes : [];
   const preferredSiteId = state.activeTour?.siteId || state.agent?.siteId;
   state.route = state.routes.find((route) => route.siteId === preferredSiteId)
     || (state.routes.length === 1 ? state.routes[0] : null);
   return result.ok && state.routes.length > 0;
+}
+
+async function restoreAgentWorkspace() {
+  if (!await prepareWorkspace()) {
+    showToast("Stockage indisponible · réessayez après avoir libéré de l’espace");
+    return false;
+  }
+  const session = state.session;
+  try {
+    const records = await tourStore.all();
+    if (!session || state.session !== session) return false;
+    Object.assign(state, selectAgentTours(session.agentId, records));
+    state.syncStatus = records.some((record) => record.pending && record.tour.agentId === session.agentId) ? "pending" : "synced";
+    updateSyncStatus();
+    return true;
+  } catch (error) {
+    console.warn("Patrol recovery failed:", error);
+    state.syncStatus = "storage-error";
+    updateSyncStatus();
+    showToast("Lecture des tournées impossible · réessayez");
+    return false;
+  }
+}
+
+function updateSyncStatus() {
+  dom.syncStatus.hidden = !state.agent && state.syncStatus !== "storage-error";
+  dom.syncStatus.dataset.status = state.syncStatus;
+  dom.syncStatus.textContent = state.syncStatus === "storage-error"
+    ? "Enregistrement local impossible · aucune validation n’a été effectuée"
+    : state.syncStatus === "pending"
+      ? "Enregistré sur cet appareil · synchronisation en attente"
+      : "Tournées synchronisées";
 }
 
 function setupViewportHeight() {
@@ -167,9 +245,10 @@ function bindEvents() {
   window.addEventListener("online", () => {
     flushSessionRevocations();
     validateAgentSession();
+    tourSync.flush();
   });
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") validateAgentSession();
+    if (document.visibilityState === "visible") { validateAgentSession(); tourSync.flush(); }
   });
 
   dom.mainView.addEventListener("submit", async (event) => {
@@ -177,7 +256,7 @@ function bindEvents() {
 
     if (event.target.id === "commentForm") {
       const formData = new FormData(event.target);
-      finishCommentStep(formData.get("tourComment"));
+      await finishCommentStep(formData.get("tourComment"));
       return;
     }
 
@@ -199,7 +278,8 @@ function bindEvents() {
 
     submitButton.disabled = true;
     submitButton.textContent = "Vérification...";
-    const result = await authenticateAgent({ badge, pin, remember });
+    authAttempt += 1;
+    const result = await authenticateAgent({ badge, pin, remember }).catch((error) => ({ ok: false, error }));
 
     if (!result.ok) {
       submitButton.disabled = false;
@@ -208,20 +288,26 @@ function bindEvents() {
       return;
     }
 
-    if (state.activeTour && state.activeTour.agentId !== result.agent.id) {
-      state.activeTour = null;
-      saveActiveTour(null);
-    }
-
     state.agent = result.agent;
     state.credentials = result.token
       ? { token: result.token }
       : { badge: result.agent.badge, pin, sessionEpoch: result.sessionEpoch };
-    const routeLoaded = await loadRoutes(state.credentials);
+    state.session = { agentId: result.agent.id, credentials: state.credentials };
+    if (!await restoreAgentWorkspace()) {
+      if (result.token) scheduleSessionRevocation(result.token);
+      resetAgentState();
+      render();
+      return;
+    }
+    const routeLoaded = await loadRoutes(state.credentials).catch(() => false);
     if (!routeLoaded) {
       if (result.token) scheduleSessionRevocation(result.token);
       state.agent = null;
       state.credentials = null;
+      state.session = null;
+      state.activeTour = null;
+      state.history = [];
+      updateSyncStatus();
       showToast("Configuration du site indisponible");
       render();
       return;
@@ -229,9 +315,12 @@ function bindEvents() {
     const previous = loadRememberedSession()?.token;
     if (previous && previous !== result.token) scheduleSessionRevocation(previous);
     clearAgent();
-    if (result.token) saveRememberedSession({ token: result.token });
+    if (result.token && !saveRememberedSession({ token: result.token })) {
+      showToast("Connexion active · impossible de mémoriser cet appareil");
+    }
     startAgentSessionMonitoring();
     render();
+    tourSync.flush();
   });
 
   dom.mainView.addEventListener("click", async (event) => {
@@ -265,7 +354,7 @@ function bindEvents() {
     }
 
     if (action === "comment-skip") {
-      finishCommentStep("");
+      await finishCommentStep("");
     }
   });
 
@@ -320,25 +409,27 @@ function bindEvents() {
     updateReasonButtons();
   });
 
-  dom.confirmCancelButton.addEventListener("click", () => {
-    const reason = dom.cancelReason.value.trim();
-    const cancelled = cancelTour(state.activeTour, reason);
-    if (!cancelled) {
-      closeCancelSheet();
-      return;
-    }
+  dom.confirmCancelButton.addEventListener("click", async () => {
+    if (dom.confirmCancelButton.disabled) return;
+    dom.confirmCancelButton.disabled = true;
+    try {
+      const reason = dom.cancelReason.value.trim();
+      const cancelled = cancelTour(state.activeTour, reason);
+      if (!cancelled) {
+        closeCancelSheet();
+        return;
+      }
 
-    addTourToHistory(cancelled);
-    state.history = loadTourHistory();
-    state.lastOutcomeTour = cancelled;
-    state.activeTour = null;
-    state.pendingStart = false;
-    if (state.routes.length > 1) state.route = null;
-    saveActiveTour(null);
-    persistTour(cancelled);
-    closeCancelSheet();
-    showToast("Tournée annulée");
-    render();
+      if (!await persistTour(cancelled)) return;
+      state.history = [cancelled, ...state.history.filter((tour) => tour.id !== cancelled.id)].slice(0, 25);
+      state.lastOutcomeTour = cancelled;
+      state.activeTour = null;
+      state.pendingStart = false;
+      if (state.routes.length > 1) state.route = null;
+      closeCancelSheet();
+      showToast("Tournée annulée");
+      render();
+    } finally { dom.confirmCancelButton.disabled = false; }
   });
 
   dom.closeIncidentButton.addEventListener("click", closeIncidentSheet);
@@ -394,11 +485,14 @@ async function flushSessionRevocations() {
 async function validateAgentSession() {
   if (sessionCheckInFlight || !state.agent || !state.credentials || !navigator.onLine) return;
   sessionCheckInFlight = true;
+  const session = state.session;
   try {
     const result = await checkAgentSession(state.credentials);
-    if (result.ok && !result.valid) {
-      forceAgentLogout("Session fermée par le responsable");
+    if (state.session === session && result.ok && !result.valid) {
+      forceAgentLogout("Session fermée par le responsable · vos tournées sont conservées");
     }
+  } catch (error) {
+    console.warn("Session check unavailable:", error);
   } finally {
     sessionCheckInFlight = false;
   }
@@ -407,9 +501,10 @@ async function validateAgentSession() {
 function resetAgentState() {
   window.clearInterval(sessionMonitorId);
   sessionMonitorId = null;
-  clearAgentWorkspace();
+  clearAgent();
   state.agent = null;
   state.credentials = null;
+  state.session = null;
   state.activeTour = null;
   state.history = [];
   state.routes = [];
@@ -417,6 +512,8 @@ function resetAgentState() {
   state.pendingStart = false;
   state.commentTour = null;
   state.lastOutcomeTour = null;
+  if (state.syncStatus !== "storage-error") state.syncStatus = "";
+  updateSyncStatus();
 }
 
 function forceAgentLogout(message) {
@@ -487,7 +584,7 @@ function renderLogin() {
 }
 
 function renderReady() {
-  const latest = state.lastOutcomeTour || state.history[0] || null;
+  const latest = [state.lastOutcomeTour, ...state.history].find((tour) => tour?.agentId === state.agent.id) || null;
   const startPoint = state.route?.points.find((point) => point.kind === "start");
   return `
     <div class="stack">
@@ -592,7 +689,7 @@ function renderPointRows(tour) {
       <article class="point-row ${done ? "done" : ""} ${next ? "next" : ""} ${locked ? "locked" : ""}">
         <span class="point-state">${done ? "✓" : locked ? "·" : "QR"}</span>
         <span class="point-main">
-          <span class="point-name">${point.label}</span>
+          <span class="point-name">${escapeHtml(point.label)}</span>
           <span class="point-kind">${point.kind === "start" ? "Poste de départ" : "Point de contrôle"}</span>
         </span>
         <span class="point-time">${scan ? formatTime(scan.scannedAt) : "--:--"}</span>
@@ -669,11 +766,12 @@ function renderOutcome(tour) {
 }
 
 function renderHistory() {
-  if (!state.history.length) {
+  const history = state.history.filter((tour) => tour.agentId === state.agent?.id);
+  if (!history.length) {
     return "";
   }
 
-  const rows = state.history.slice(0, 3).map((tour) => {
+  const rows = history.slice(0, 3).map((tour) => {
     const label = tour.status === "completed" ? "Clôturée" : "Annulée";
     const endTime = tour.completedAt || tour.cancelledAt;
     return `
@@ -1023,9 +1121,9 @@ async function handleScan(rawPayload) {
       return;
     }
 
+    if (!await persistTour(result.tour)) return;
     state.activeTour = result.tour;
     state.pendingStart = false;
-    persistTour(state.activeTour);
     closeScanner();
     showToast("Tournée démarrée");
     render();
@@ -1039,59 +1137,61 @@ async function handleScan(rawPayload) {
     return;
   }
 
+  if (!await persistTour(result.tour)) return;
   state.activeTour = result.tour;
 
   if (result.completed) {
-    addTourToHistory(result.tour);
-    state.history = loadTourHistory();
+    state.history = [result.tour, ...state.history.filter((tour) => tour.id !== result.tour.id)].slice(0, 25);
     state.commentTour = result.tour;
     state.lastOutcomeTour = null;
     state.activeTour = null;
-    saveActiveTour(null);
-    persistTour(result.tour);
     closeScanner();
     showToast("Tournée clôturée");
     render();
     return;
   }
 
-  persistTour(state.activeTour);
   closeScanner();
   showToast(result.readyToClose ? "Retour Poste A requis" : "Point validé");
   render();
 }
 
-function finishCommentStep(rawComment) {
-  if (!state.commentTour) {
+async function finishCommentStep(rawComment) {
+  if (!state.commentTour || commentSaveInFlight) {
     return;
   }
-
-  const updatedTour = setTourComment(state.commentTour, rawComment);
-  replaceTourInHistory(updatedTour);
-  state.history = loadTourHistory();
-  state.commentTour = null;
-  state.lastOutcomeTour = updatedTour;
-  if (state.routes.length > 1) state.route = null;
-  persistTour(updatedTour);
-  showToast(updatedTour.comment ? "Commentaire ajouté" : "Tournée enregistrée");
-  render();
+  commentSaveInFlight = true;
+  try {
+    const updatedTour = setTourComment(state.commentTour, rawComment);
+    if (!await persistTour(updatedTour)) return;
+    state.history = [updatedTour, ...state.history.filter((tour) => tour.id !== updatedTour.id)].slice(0, 25);
+    state.commentTour = null;
+    state.lastOutcomeTour = updatedTour;
+    if (state.routes.length > 1) state.route = null;
+    showToast(updatedTour.comment ? "Commentaire ajouté" : "Tournée enregistrée");
+    render();
+  } finally { commentSaveInFlight = false; }
 }
 
-function persistTour(tour) {
-  saveActiveTour(tour?.status === "active" ? tour : null);
-  saveTourRemote(tour, state.credentials).then((result) => {
-    if (result.ok || result.skipped) {
-      return;
+async function persistTour(tour) {
+  const session = state.session;
+  if (!session || tour?.agentId !== session.agentId) return false;
+  try {
+    await tourSync.enqueue(tour);
+    if (state.session !== session) return false;
+    state.syncStatus = "pending";
+    updateSyncStatus();
+    window.setTimeout(() => tourSync.flush(), 0);
+    return true;
+  } catch (error) {
+    console.warn("Local patrol save failed:", error);
+    if (state.session === session) {
+      state.syncStatus = "storage-error";
+      updateSyncStatus();
+      showToast("Enregistrement impossible · libérez de l’espace puis réessayez");
     }
-
-    if (result.authRejected) {
-      forceAgentLogout("Session agent expirée");
-      return;
-    }
-
-    console.warn("Remote tour save failed:", result.error);
-    showToast("Synchro différée");
-  });
+    return false;
+  }
 }
 
 function getScannerTitle() {
@@ -1184,6 +1284,9 @@ async function submitIncident(event) {
   event.preventDefault();
   if (!state.activeTour) return;
   const button = event.target.querySelector('button[type="submit"]');
+  if (button.disabled) return;
+  const capturedTour = state.activeTour;
+  const note = dom.incidentNote.value;
   button.disabled = true;
   button.textContent = "Enregistrement...";
 
@@ -1192,23 +1295,28 @@ async function submitIncident(event) {
       requestCurrentLocation(),
       compressIncidentPhoto(dom.incidentPhoto.files[0])
     ]);
-    const updated = addTourIncident(state.activeTour, {
+    if (state.activeTour !== capturedTour || !state.incidentOpen) return;
+    const updated = addTourIncident(capturedTour, {
       category: "Incident",
-      note: dom.incidentNote.value,
+      note,
       photoData,
       gps,
       createdAt: new Date()
     });
+    if (!await persistTour(updated)) {
+      button.disabled = false;
+      button.textContent = "Enregistrer le signalement";
+      return;
+    }
     state.activeTour = updated;
-    persistTour(updated);
     closeIncidentSheet();
-    showToast("Incident signalé");
+    showToast("Incident enregistré sur cet appareil");
     render();
   } catch (error) {
     console.warn("Incident capture failed:", error);
     button.disabled = false;
     button.textContent = "Enregistrer le signalement";
-    showToast(getLocationErrorMessage(error));
+    showToast(typeof error?.code === "number" ? getLocationErrorMessage(error) : "Photo non enregistrée · choisissez une autre image");
   }
 }
 
