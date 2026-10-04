@@ -1,4 +1,4 @@
-const CACHE_NAME = "security-patrol-agent-v13";
+const CACHE_NAME = "security-patrol-agent-v14";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -13,7 +13,7 @@ const APP_SHELL = [
   "./src/tourSync.js?v=1",
   "./manifest.webmanifest",
   "./assets/sab-agent-logo.png",
-  "./assets/sab-agent-apple-touch-icon.png"
+  "./assets/sab-agent-apple-touch-icon-white.png"
 ];
 
 self.addEventListener("install", (event) => {
