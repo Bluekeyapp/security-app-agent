@@ -1905,3 +1905,20 @@ body.incident-open { overflow: hidden; }
 .incident-photo-name { display: block; margin-top: 5px; font-size: 0.78rem; font-weight: 500; overflow-wrap: anywhere; }
 .incident-screen .form-help { margin: 0; line-height: 1.5; }
 .incident-screen .report-button { min-height: 56px; }
+
+.startup-status { margin: 0; color: var(--muted); font-size: 0.9rem; }
+.skeleton-panel { display: grid; gap: 16px; }
+.skeleton-block {
+  height: 16px;
+  border-radius: 8px;
+  background: linear-gradient(100deg, var(--surface-2) 25%, #303844 50%, var(--surface-2) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.6s ease-in-out infinite;
+}
+.skeleton-short { width: 34%; height: 12px; }
+.skeleton-title { width: 78%; height: 28px; }
+.skeleton-copy { width: 62%; }
+.skeleton-button { height: 52px; margin-top: 8px; border-radius: 12px; }
+.skeleton-row { height: 48px; }
+@keyframes skeleton-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .skeleton-block { animation: none; } }

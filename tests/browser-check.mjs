@@ -48,15 +48,23 @@ try {
   let allowSync = false;
   const invalidAgents = new Set();
   const sent = [];
+  let releaseResume;
+  let resumeGate = Promise.resolve();
+  let resumeResult = null;
   await page.route("**/src/agentRemoteStore.js*", async (intercept) => {
     await intercept.fulfill({ contentType: "text/javascript", body: `
       export async function authenticateAgent({badge}) { return {ok:true, agent:{id:badge.toLowerCase(),badge,name:'Agent '+badge,siteId:'site-a'},sessionEpoch:'epoch'}; }
-      export async function resumeRememberedAgent(token) { return {ok:true,agent:{id:token.toLowerCase(),badge:token,name:'Agent '+token,siteId:'site-a'}}; }
+      export async function resumeRememberedAgent(token) { return (await fetch('/__test/resume',{method:'POST',body:JSON.stringify({token})})).json(); }
       export async function revokeRememberedAgent() { return true; }
       export async function fetchAgentRoutes() { return {ok:true,routes:${JSON.stringify([route])}}; }
       export async function checkAgentSession(credentials) { return (await fetch('/__test/check',{method:'POST',body:JSON.stringify(credentials)})).json(); }
       export async function saveTourRemote(tour,credentials) { return (await fetch('/__test/sync',{method:'POST',body:JSON.stringify({tour,credentials})})).json(); }
     ` });
+  });
+  await page.route("**/__test/resume", async (intercept) => {
+    const { token } = intercept.request().postDataJSON();
+    await resumeGate;
+    await intercept.fulfill({ json: resumeResult || { ok: true, agent: { id: token.toLowerCase(), badge: token, name: "Agent " + token, siteId: "site-a" } } });
   });
   await page.route("**/__test/check", async (intercept) => {
     const credentials = intercept.request().postDataJSON();
@@ -156,11 +164,32 @@ try {
     await (await import("/src/tourStore.js?v=1")).tourStore.put({ ...tour, id: "remembered-active-a" });
     localStorage.setItem("security_patrol_remembered_session", JSON.stringify({ token: "B" }));
   }, active);
+  resumeGate = new Promise((resolve) => { releaseResume = resolve; });
   await page.reload();
+  await page.getByText("Reconnexion en cours…", { exact: true }).waitFor();
+  assert.equal(await page.locator("#loginForm").count(), 0);
+  if (process.env.STARTUP_PREVIEW_PATH) await page.screenshot({ path: process.env.STARTUP_PREVIEW_PATH });
+  for (const width of [320, 390, 1280]) {
+    await page.setViewportSize({ width, height: 844 });
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+  }
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  assert.equal(await page.locator(".skeleton-block").first().evaluate((element) => getComputedStyle(element).animationName), "none");
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.setViewportSize({ width: 390, height: 844 });
+  releaseResume();
   await page.getByText("B-only-comment").waitFor();
+  assert.equal(await page.locator(".startup-skeleton").count(), 0);
+  console.log("PASS: slow remembered login shows a responsive skeleton without a login flash, respecting reduced motion.");
   assert.equal(await page.getByRole("button", { name: "Signaler" }).count(), 0);
   assert.equal((await records()).find((record) => record.id === "remembered-active-a").tour.status, "active");
-  await expire("B");
+  resumeResult = { ok: false, invalidCredentials: true };
+  await page.reload();
+  await page.getByRole("heading", { name: "Connexion agent" }).waitFor();
+  assert.equal(await page.locator(".startup-skeleton").count(), 0);
+  assert.equal(await page.evaluate(() => localStorage.getItem("security_patrol_remembered_session")), null);
+  resumeResult = null;
+  console.log("PASS: an expired remembered session exits the skeleton and shows login.");
   invalidAgents.delete("B");
   await login("A");
   await page.getByRole("button", { name: "Signaler" }).waitFor();

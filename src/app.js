@@ -32,6 +32,7 @@ import { createTourSync, selectAgentTours } from "./tourSync.js?v=1";
 clearLegacyAgentCredentials();
 
 const state = {
+  restoringSession: false,
   agent: null,
   credentials: null,
   activeTour: null,
@@ -138,38 +139,41 @@ initialize();
 registerServiceWorker();
 
 async function initialize() {
+  const remembered = loadRememberedSession();
+  state.restoringSession = Boolean(remembered?.token && navigator.onLine);
   render();
   document.documentElement.dataset.appReady = "true";
   flushSessionRevocations();
   window.setInterval(flushSessionRevocations, 60000);
   window.setInterval(() => tourSync.flush(), 30000);
-  const remembered = loadRememberedSession();
-  if (remembered?.token && navigator.onLine) {
-    const attempt = authAttempt;
-    const result = await resumeRememberedAgent(remembered.token).catch((error) => ({ ok: false, error }));
-    if (state.agent || authAttempt !== attempt) return;
-    if (result.ok) {
-      state.agent = result.agent;
-      state.credentials = { token: remembered.token };
-      state.session = { agentId: state.agent.id, credentials: state.credentials };
-      if (!await restoreAgentWorkspace()) { resetAgentState(); render(); return; }
-      if (await loadRoutes(state.credentials)) {
-        startAgentSessionMonitoring();
-        render();
-        tourSync.flush();
-      } else {
-        state.agent = null;
-        state.credentials = null;
-        state.session = null;
-        state.activeTour = null;
-        state.history = [];
-        updateSyncStatus();
+  try {
+    if (state.restoringSession) {
+      const attempt = authAttempt;
+      const result = await resumeRememberedAgent(remembered.token).catch((error) => ({ ok: false, error }));
+      if (state.agent || authAttempt !== attempt) return;
+      if (result.ok) {
+        state.agent = result.agent;
+        state.credentials = { token: remembered.token };
+        state.session = { agentId: state.agent.id, credentials: state.credentials };
+        if (!await restoreAgentWorkspace()) { resetAgentState(); return; }
+        if (await loadRoutes(state.credentials)) {
+          tourSync.flush();
+        } else {
+          resetAgentState(false);
+        }
+      } else if (result.invalidCredentials) {
+        clearAgent();
       }
-    } else if (result.invalidCredentials) {
-      clearAgent();
     }
+  } catch (error) {
+    console.warn("Session restoration failed:", error);
+    resetAgentState(false);
+    showToast("Reconnexion impossible · réessayez de vous connecter");
+  } finally {
+    state.restoringSession = false;
+    render();
+    startAgentSessionMonitoring();
   }
-  startAgentSessionMonitoring();
 }
 
 async function loadRoutes(credentials) {
@@ -498,10 +502,10 @@ async function validateAgentSession() {
   }
 }
 
-function resetAgentState() {
+function resetAgentState(clearSavedCredentials = true) {
   window.clearInterval(sessionMonitorId);
   sessionMonitorId = null;
-  clearAgent();
+  if (clearSavedCredentials) clearAgent();
   state.agent = null;
   state.credentials = null;
   state.session = null;
@@ -530,6 +534,11 @@ function render() {
 
 
 
+  if (state.restoringSession) {
+    dom.mainView.innerHTML = renderStartupSkeleton();
+    return;
+  }
+
   if (!state.agent) {
     dom.mainView.innerHTML = renderLogin();
     return;
@@ -551,6 +560,27 @@ function render() {
   }
 
   dom.mainView.innerHTML = renderReady();
+}
+
+function renderStartupSkeleton() {
+  return `
+    <div class="stack startup-skeleton">
+      <p class="startup-status" role="status">Reconnexion en cours…</p>
+      <div aria-hidden="true" class="stack">
+        <section class="status-panel skeleton-panel">
+          <div class="skeleton-block skeleton-short"></div>
+          <div class="skeleton-block skeleton-title"></div>
+          <div class="skeleton-block skeleton-copy"></div>
+          <div class="skeleton-block skeleton-button"></div>
+        </section>
+        <section class="status-panel skeleton-panel">
+          <div class="skeleton-block skeleton-short"></div>
+          <div class="skeleton-block skeleton-row"></div>
+          <div class="skeleton-block skeleton-row"></div>
+        </section>
+      </div>
+    </div>
+  `;
 }
 
 function renderLogin() {
