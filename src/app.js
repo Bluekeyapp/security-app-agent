@@ -24,7 +24,7 @@ import {
   queueSessionRevocation,
   saveRememberedSession
 } from "./storage.js?v=64";
-import { authenticateAgent, checkAgentSession, fetchAgentRoutes, resumeRememberedAgent, revokeRememberedAgent, saveTourRemote } from "./agentRemoteStore.js?v=66";
+import { authenticateAgent, checkAgentSession, fetchAgentRoutes, resumeRememberedAgent, revokeRememberedAgent, saveTourRemote } from "./agentRemoteStore.js?v=67";
 import { migrateLegacyTours, tourStore } from "./tourStore.js?v=1";
 import { createTourSync, selectAgentTours } from "./tourSync.js?v=1";
 
@@ -280,6 +280,9 @@ function bindEvents() {
       return;
     }
 
+    const loginMessage = form.querySelector("#loginMessage");
+    loginMessage.textContent = "";
+    loginMessage.hidden = true;
     submitButton.disabled = true;
     submitButton.textContent = "Vérification...";
     authAttempt += 1;
@@ -288,7 +291,11 @@ function bindEvents() {
     if (!result.ok) {
       submitButton.disabled = false;
       submitButton.textContent = "Se connecter";
-      showToast(result.invalidCredentials ? "Matricule ou PIN incorrect" : "Connexion indisponible");
+      const minutes = result.retryAfterSeconds > 0 ? Math.ceil(result.retryAfterSeconds / 60) : null;
+      loginMessage.textContent = result.locked
+        ? `Connexion temporairement bloquée après plusieurs tentatives. ${minutes ? `Réessaie dans environ ${minutes} minute${minutes > 1 ? "s" : ""}` : "Réessaie plus tard"} ou contacte ton responsable.`
+        : result.invalidCredentials ? "Matricule ou PIN incorrect." : "Connexion indisponible. Vérifie ta connexion et réessaie.";
+      loginMessage.hidden = false;
       return;
     }
 
@@ -608,6 +615,7 @@ function renderLogin() {
           <span class="remember-agent-switch" aria-hidden="true"></span>
         </label>
         <button class="primary-button" type="submit">Se connecter</button>
+        <p id="loginMessage" class="login-message" role="alert" aria-atomic="true" hidden></p>
       </form>
     </section>
   `;

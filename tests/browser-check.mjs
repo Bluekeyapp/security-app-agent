@@ -45,6 +45,7 @@ try {
     }
     navigator.geolocation.getCurrentPosition = (success) => success({ coords: { latitude: 18, longitude: -63, accuracy: 5 }, timestamp: Date.now() });
   }, { active, history });
+  let loginResult = null;
   let allowSync = false;
   const invalidAgents = new Set();
   const sent = [];
@@ -53,13 +54,17 @@ try {
   let resumeResult = null;
   await page.route("**/src/agentRemoteStore.js*", async (intercept) => {
     await intercept.fulfill({ contentType: "text/javascript", body: `
-      export async function authenticateAgent({badge}) { return {ok:true, agent:{id:badge.toLowerCase(),badge,name:'Agent '+badge,siteId:'site-a'},sessionEpoch:'epoch'}; }
+      export async function authenticateAgent({badge}) { return (await fetch('/__test/login',{method:'POST',body:JSON.stringify({badge})})).json(); }
       export async function resumeRememberedAgent(token) { return (await fetch('/__test/resume',{method:'POST',body:JSON.stringify({token})})).json(); }
       export async function revokeRememberedAgent() { return true; }
       export async function fetchAgentRoutes() { return {ok:true,routes:${JSON.stringify([route])}}; }
       export async function checkAgentSession(credentials) { return (await fetch('/__test/check',{method:'POST',body:JSON.stringify(credentials)})).json(); }
       export async function saveTourRemote(tour,credentials) { return (await fetch('/__test/sync',{method:'POST',body:JSON.stringify({tour,credentials})})).json(); }
     ` });
+  });
+  await page.route("**/__test/login", async (intercept) => {
+    const { badge } = intercept.request().postDataJSON();
+    await intercept.fulfill({ json: loginResult || {ok:true,agent:{id:badge.toLowerCase(),badge,name:'Agent '+badge,siteId:'site-a'},sessionEpoch:'epoch'} });
   });
   await page.route("**/__test/resume", async (intercept) => {
     const { token } = intercept.request().postDataJSON();
@@ -89,6 +94,27 @@ try {
   };
 
   await page.goto(origin);
+  loginResult = {ok:false,locked:true,retryAfterSeconds:61};
+  await login("A");
+  await page.getByRole("alert").filter({hasText:"2 minutes"}).waitFor();
+  assert.match(await page.locator("#loginMessage").textContent(), /contacte ton responsable/);
+  await page.waitForTimeout(1700);
+  assert.equal(await page.locator("#loginMessage").isVisible(), true);
+  assert.equal(await page.getByLabel("Matricule", {exact:true}).inputValue(), "A");
+  for (const width of [320, 390, 1280]) {
+    await page.setViewportSize({width,height:844});
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+  }
+  await page.setViewportSize({width:390,height:844});
+  if (process.env.LOGIN_PREVIEW_PATH) await page.screenshot({path:process.env.LOGIN_PREVIEW_PATH});
+  loginResult = {ok:false,invalidCredentials:true};
+  await login("A");
+  await page.getByText("Matricule ou PIN incorrect.", {exact:true}).waitFor();
+  loginResult = {ok:false,error:{message:"network"}};
+  await login("A");
+  await page.getByText("Connexion indisponible. Vérifie ta connexion et réessaie.", {exact:true}).waitFor();
+  loginResult = null;
+  console.log("PASS: persistent lockout feedback shows server delay, preserves inputs and distinguishes network failures.");
   await login("A");
   await page.getByRole("button", { name: "Signaler" }).waitFor();
   assert.equal(await page.locator(".point-name").filter({ hasText: maliciousLabel }).count(), 1);

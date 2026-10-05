@@ -764,6 +764,17 @@ body.keyboard-open .main-view {
   padding: 18px;
 }
 
+.login-message {
+  margin: 0;
+  padding: 12px;
+  border: 1px solid #9d5b42;
+  border-radius: 8px;
+  background: #2b1c17;
+  color: #ffd2ba;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
 .startup-panel h2 {
   margin: 6px 0 10px;
 }

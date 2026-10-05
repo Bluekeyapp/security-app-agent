@@ -6,13 +6,18 @@ export async function authenticateAgent({ badge, pin, remember = false }) {
     return { ok: false, error: new Error("Supabase non configuré") };
   }
 
-  const { data, error } = await supabase.rpc(remember ? "create_remembered_agent_session" : "authenticate_agent_session", {
+  const { data, error } = await supabase.rpc("agent_login", {
     p_badge: String(badge || "").trim(),
-    p_pin: String(pin || "")
+    p_pin: String(pin || ""),
+    p_remember: Boolean(remember)
   });
-  const agent = remember ? data : (Array.isArray(data) ? data[0] : null);
+  const agent = data?.ok === true ? data.agent : null;
 
   if (error) return { ok: false, error };
+  if (data?.ok === false && data.reason === "locked") {
+    const seconds = Number(data.retry_after_seconds);
+    return { ok: false, locked: true, retryAfterSeconds: Number.isFinite(seconds) && seconds > 0 ? seconds : null };
+  }
   if (!agent) return { ok: false, invalidCredentials: true };
 
   return {
