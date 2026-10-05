@@ -764,6 +764,35 @@ body.keyboard-open .main-view {
   padding: 18px;
 }
 
+.sign-out-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.sign-out-button[hidden] {
+  display: none;
+}
+
+.sign-out-button:hover {
+  color: var(--text);
+  border-color: var(--blue);
+}
+
+.sign-out-button:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 3px;
+}
+
 .login-message {
   margin: 0;
   padding: 12px;

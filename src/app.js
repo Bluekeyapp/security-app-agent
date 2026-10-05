@@ -67,6 +67,7 @@ const dom = {
   viewportMeta: document.querySelector('meta[name="viewport"]'),
   mainView: document.getElementById("mainView"),
   syncStatus: document.getElementById("syncStatus"),
+  signOutButton: document.getElementById("signOutButton"),
 
   toast: document.getElementById("toast"),
   scannerSheet: document.getElementById("scannerSheet"),
@@ -244,6 +245,16 @@ function resetViewportZoom() {
 }
 
 function bindEvents() {
+  dom.signOutButton.addEventListener("click", () => {
+    if (!canSignOut()) return;
+    const token = state.credentials?.token || loadRememberedSession()?.token;
+    authAttempt += 1;
+    resetAgentState();
+    if (token) scheduleSessionRevocation(token);
+    render();
+    dom.mainView.querySelector('[name="agentBadge"]')?.focus();
+    showToast("Déconnecté · vos tournées sont conservées");
+  });
 
 
   window.addEventListener("online", () => {
@@ -536,7 +547,15 @@ function forceAgentLogout(message) {
   showToast(message);
 }
 
+function canSignOut() {
+  return Boolean(state.agent && !state.restoringSession && !state.activeTour
+    && !state.commentTour && !state.pendingStart && !state.scannerOpen
+    && !state.cancelOpen && !state.incidentOpen);
+}
+
 function render() {
+  dom.signOutButton.hidden = !canSignOut();
+  dom.signOutButton.disabled = !canSignOut();
   resetViewportZoom();
 
 

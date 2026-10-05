@@ -49,6 +49,7 @@ try {
   let allowSync = false;
   const invalidAgents = new Set();
   const sent = [];
+  const revoked = [];
   let releaseResume;
   let resumeGate = Promise.resolve();
   let resumeResult = null;
@@ -56,11 +57,15 @@ try {
     await intercept.fulfill({ contentType: "text/javascript", body: `
       export async function authenticateAgent({badge}) { return (await fetch('/__test/login',{method:'POST',body:JSON.stringify({badge})})).json(); }
       export async function resumeRememberedAgent(token) { return (await fetch('/__test/resume',{method:'POST',body:JSON.stringify({token})})).json(); }
-      export async function revokeRememberedAgent() { return true; }
+      export async function revokeRememberedAgent(token) { return (await fetch('/__test/revoke',{method:'POST',body:JSON.stringify({token})})).json(); }
       export async function fetchAgentRoutes() { return {ok:true,routes:${JSON.stringify([route])}}; }
       export async function checkAgentSession(credentials) { return (await fetch('/__test/check',{method:'POST',body:JSON.stringify(credentials)})).json(); }
       export async function saveTourRemote(tour,credentials) { return (await fetch('/__test/sync',{method:'POST',body:JSON.stringify({tour,credentials})})).json(); }
     ` });
+  });
+  await page.route("**/__test/revoke", async (intercept) => {
+    revoked.push(intercept.request().postDataJSON().token);
+    await intercept.fulfill({json:true});
   });
   await page.route("**/__test/login", async (intercept) => {
     const { badge } = intercept.request().postDataJSON();
@@ -94,6 +99,7 @@ try {
   };
 
   await page.goto(origin);
+  assert.equal(await page.locator("#signOutButton").isVisible(), false);
   loginResult = {ok:false,locked:true,retryAfterSeconds:61};
   await login("A");
   await page.getByRole("alert").filter({hasText:"2 minutes"}).waitFor();
@@ -117,6 +123,7 @@ try {
   console.log("PASS: persistent lockout feedback shows server delay, preserves inputs and distinguishes network failures.");
   await login("A");
   await page.getByRole("button", { name: "Signaler" }).waitFor();
+  assert.equal(await page.locator("#signOutButton").isVisible(), false);
   assert.equal(await page.locator(".point-name").filter({ hasText: maliciousLabel }).count(), 1);
   assert.equal(await page.locator(".point-name img").count(), 0);
   assert.equal(await page.evaluate(() => window.__xss), undefined);
@@ -158,6 +165,13 @@ try {
   await page.locator("#confirmCancelButton").click();
   await page.getByRole("heading", { name: "Tournée annulée" }).waitFor();
   assert.equal((await records()).find((record) => record.id === active.id).pending, true);
+  await page.getByRole("button", {name:"Se déconnecter",exact:true}).waitFor();
+  const savedBeforeSignOut = await records();
+  await page.getByRole("button", {name:"Se déconnecter",exact:true}).click();
+  await page.getByRole("heading", {name:"Connexion agent"}).waitFor();
+  assert.deepEqual(await records(), savedBeforeSignOut);
+  assert.equal(await page.locator("#signOutButton").isVisible(), false);
+  assert.equal(await page.getByLabel("Matricule", {exact:true}).evaluate(el => el === document.activeElement), true);
   await context.setOffline(false);
   await page.reload();
   await login("B");
@@ -166,6 +180,23 @@ try {
   assert.equal((await records()).find((record) => record.id === active.id).tour.status, "cancelled");
   console.log("PASS: offline cancellation survives reload; agent B sees only B's records.");
 
+  await page.getByRole("button", {name:"Se déconnecter",exact:true}).waitFor();
+  await page.evaluate(() => localStorage.setItem("security_patrol_remembered_session", JSON.stringify({token:"B"})));
+  await page.reload();
+  await page.getByText("B-only-comment").waitFor();
+  await context.setOffline(true);
+  await page.getByRole("button", {name:"Se déconnecter",exact:true}).click();
+  await page.getByRole("heading", {name:"Connexion agent"}).waitFor();
+  assert.equal(await page.evaluate(() => localStorage.getItem("security_patrol_remembered_session")), null);
+  assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem("security_patrol_pending_revocations"))), ["B"]);
+  await context.setOffline(false);
+  await page.waitForFunction(() => localStorage.getItem("security_patrol_pending_revocations") === null);
+  assert.deepEqual(revoked, ["B"]);
+  await page.reload();
+  await page.getByRole("heading", {name:"Connexion agent"}).waitFor();
+  await login("B");
+  await page.getByText("B-only-comment").waitFor();
+  console.log("PASS: sign-out preserves pending patrols, clears remembered login, and revokes offline tokens on reconnect.");
   await expire("B");
   invalidAgents.delete("B");
   await login("A");
@@ -232,6 +263,7 @@ try {
   await page.evaluate(() => { window.testQr = "START"; });
   await page.locator('[data-action="scan"]').click();
   await page.locator('[name="tourComment"]').waitFor();
+  assert.equal(await page.locator("#signOutButton").isVisible(), false);
   await page.locator('[name="tourComment"]').fill("Final browser test comment");
   await page.locator('#commentForm button[type="submit"]').click();
   await page.getByText("Commentaire : Final browser test comment", { exact: true }).waitFor();
@@ -241,7 +273,15 @@ try {
   assert.deepEqual(finished.scans.map((scan) => scan.type), ["start", "checkpoint", "close"]);
   console.log("PASS: scanning, completion and final comments commit successfully.");
 
+  await page.getByRole("button", {name:"Se déconnecter",exact:true}).waitFor();
+  await page.setViewportSize({width:390,height:844});
+  if (process.env.SIGNOUT_PREVIEW_PATH) await page.screenshot({path:process.env.SIGNOUT_PREVIEW_PATH});
+  for (const width of [320,390,1280]) {
+    await page.setViewportSize({width,height:844});
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+  }
   await page.getByRole("button", { name: "Nouvelle tournée" }).click();
+  assert.equal(await page.locator("#signOutButton").isVisible(), false);
   await page.evaluate(() => { window.testQr = "START"; });
   await page.locator('[data-action="scan"]').click();
   await page.getByRole("button", { name: "Signaler" }).waitFor();
